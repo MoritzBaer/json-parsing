@@ -65,6 +65,44 @@ constexpr TokenIterator tokenize(CharIterator begin, CharIterator end, TokenIter
 template <class TokenIterator, typename T>
 constexpr TokenIterator parse_tokenstream(TokenIterator begin, TokenIterator end, T &output);
 
+#define FIELD_PARSER(Name)                                  \
+    if (key == #Name)                                       \
+    {                                                       \
+        begin = parse_tokenstream(begin, end, output.Name); \
+    }                                                       \
+    else
+
+#define FIELD_PARSER_ARRAY(Name)                                          \
+    if (key == #Name)                                                     \
+    {                                                                     \
+        begin = parse_array(begin, end, std::back_inserter(output.Name)); \
+    }                                                                     \
+    else
+
+// TODO: Handle objects without fields
+#define OBJECT_PARSER(ObjectType, Fields)                                                                        \
+    template <class TokenIterator>                                                                               \
+    inline constexpr TokenIterator parse_tokenstream(TokenIterator begin, TokenIterator end, ObjectType &output) \
+    {                                                                                                            \
+        if (begin->type == Token::Type::LBrace)                                                                  \
+        {                                                                                                        \
+            begin++;                                                                                             \
+            std::string key;                                                                                     \
+            bool is_last;                                                                                        \
+            do                                                                                                   \
+            {                                                                                                    \
+                begin = parse_key(begin, end, key);                                                              \
+                Fields                                                                                           \
+                {                                                                                                \
+                    throw std::runtime_error("Unexpected key in image: " + key);                                 \
+                }                                                                                                \
+                begin = is_last_in_list(begin, end, is_last);                                                    \
+            } while (!is_last);                                                                                  \
+            return ++begin;                                                                                      \
+        }                                                                                                        \
+        throw std::runtime_error("Expected left brace, got " + token_type_to_string(begin->type) + ".");         \
+    }
+
 // +-----------------+
 // | IMPLEMENTATIONS |
 // +-----------------+
