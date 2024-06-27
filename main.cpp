@@ -1,29 +1,11 @@
+#include <vector>
+#include <string>
+#include <iostream>
+#include <charconv>
+#include <span>
+
 #include "json-parsing.h"
 
-#include <vector>
-
-void print(Token t)
-{
-    std::cout << "[";
-    if (t.value != nullptr)
-    {
-        for (size_t i = 0; i < t.length; i++)
-        {
-            std::cout << t.value[i];
-        }
-    }
-
-    std::string typeName = token_type_to_string(t.type);
-
-    if (t.value)
-    {
-        std::cout << ": " << typeName << "] ";
-    }
-    else
-    {
-        std::cout << typeName << "] ";
-    }
-}
 struct Image
 {
     std::string url;
@@ -51,13 +33,55 @@ OBJECT_PARSER(Comment, FIELD_PARSER(author) FIELD_PARSER(content) FIELD_PARSER(t
 
 OBJECT_PARSER(BlogPost, FIELD_PARSER(title) FIELD_PARSER(author) FIELD_PARSER(content) FIELD_PARSER(timestamp) FIELD_PARSER(image) FIELD_PARSER_ARRAY(comments));
 
+OBJECT_SERIALIZER(Image, FIELD_SERIALIZER(url) FIELD_SERIALIZER(x) FIELD_SERIALIZER(y));
+OBJECT_SERIALIZER(Comment, FIELD_SERIALIZER(author) FIELD_SERIALIZER(content) FIELD_SERIALIZER(timestamp));
+OBJECT_SERIALIZER(BlogPost, FIELD_SERIALIZER(title) FIELD_SERIALIZER(author) FIELD_SERIALIZER(content) FIELD_SERIALIZER(timestamp) FIELD_SERIALIZER(image) FIELD_SERIALIZER(comments));
+
+inline constexpr void line_break(std::vector<char> &json, int indent)
+{
+    json.push_back('\n');
+    for (int i = 0; i < indent; i++)
+    {
+        json.push_back('\t');
+    }
+}
+
+inline constexpr std::vector<char> prettify_json(std::vector<char> json)
+{
+    std::vector<char> pretty_json{};
+    int indent = 0;
+    for (int i = 0; i < json.size(); i++)
+    {
+        char c = json[i];
+        if (c == '}' || c == ']')
+        {
+            line_break(pretty_json, --indent);
+            pretty_json.push_back(c);
+            if (i < json.size() - 1 && json[i + 1] != ',')
+                line_break(pretty_json, indent);
+            continue;
+        }
+
+        pretty_json.push_back(c);
+        if (c == '{' || c == '[')
+        {
+            line_break(pretty_json, ++indent);
+        }
+        else if (c == ',')
+        {
+            line_break(pretty_json, indent);
+        }
+    }
+    return pretty_json;
+}
+
 int main()
 {
     std::string json = R"(
         {
             "author": "Jane Doe",
             "image": {
-                "url": "https://www.google.com",
+                "url": "https://google.com",
                 "x": 800,
                 "y": 600
             },
@@ -77,14 +101,13 @@ int main()
                 }
             ]
             })";
-    std::vector<Token> tokens{};
+    BlogPost post = json_deserialize<std::string, BlogPost>(json);
 
-    tokenize(json.begin(), json.end(), std::back_inserter(tokens));
-    for (auto t : tokens)
-    {
-        print(t);
-    }
+    std::vector<char> out_json{};
+    serialize_to_json(post, std::back_inserter(out_json));
+    out_json = prettify_json(out_json);
 
-    BlogPost post{};
-    parse_tokenstream(tokens.begin(), tokens.end(), post);
+    std::string out_json_str(out_json.begin(), out_json.end());
+
+    std::cout << out_json_str << std::endl;
 }

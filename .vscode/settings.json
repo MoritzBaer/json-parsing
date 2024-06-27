@@ -43,7 +43,12 @@
         "new": "cpp",
         "typeinfo": "cpp",
         "xfacet": "cpp",
-        "xlocinfo": "cpp"
+        "xlocinfo": "cpp",
+        "string": "cpp",
+        "charconv": "cpp",
+        "span": "cpp",
+        "algorithm": "cpp",
+        "optional": "cpp"
     },
     "[c]": {
         "editor.wordBasedSuggestions": "off",

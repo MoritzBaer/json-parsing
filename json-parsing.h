@@ -1,7 +1,11 @@
 #pragma once
 
 #include <iterator>
-#include <iostream>
+#include <vector>
+#include <type_traits>
+#include <algorithm>
+
+#define NUMBER_DIGIT_COUNT 16
 
 #define REACT_WITH_TOKENIZER_ERROR()                                                    \
     Token errorToken = {Token::Type::Error, &*begin, static_cast<size_t>(end - begin)}; \
@@ -60,10 +64,17 @@ constexpr inline bool isValidDelimiter(char c)
     return c == ',' || c == '}' || c == ']' || isWhitespace(c);
 }
 
+// Deserialization
 template <class CharIterator, class TokenIterator>
 constexpr TokenIterator tokenize(CharIterator begin, CharIterator end, TokenIterator output);
 template <class TokenIterator, typename T>
 constexpr TokenIterator parse_tokenstream(TokenIterator begin, TokenIterator end, T &output);
+template <class Container, typename T>
+constexpr T json_deserialize(Container json);
+
+// Serialization
+template <class OutputIterator, typename T>
+constexpr OutputIterator serialize_to_json(T const &object, OutputIterator output);
 
 #define FIELD_PARSER(Name)                                  \
     if (key == #Name)                                       \
@@ -103,11 +114,35 @@ constexpr TokenIterator parse_tokenstream(TokenIterator begin, TokenIterator end
         throw std::runtime_error("Expected left brace, got " + token_type_to_string(begin->type) + ".");         \
     }
 
+#define FIELD_SERIALIZER(field)                 \
+    if (!first)                                 \
+        *output++ = ',';                        \
+    first = false;                              \
+    output = serialize_to_json(#field, output); \
+    *output++ = ':';                            \
+    *output++ = ' ';                            \
+    output = serialize_to_json(object.field, output);
+
+#define OBJECT_SERIALIZER(type, fields)                                                          \
+    template <class OutputIterator>                                                              \
+    inline constexpr OutputIterator serialize_to_json(type const &object, OutputIterator output) \
+    {                                                                                            \
+        bool first = true;                                                                       \
+        *output++ = '{';                                                                         \
+        fields                                                                                   \
+            *output++ = '}';                                                                     \
+                                                                                                 \
+        return output;                                                                           \
+    }
+
 // +-----------------+
 // | IMPLEMENTATIONS |
 // +-----------------+
 
-inline constexpr std::string token_type_to_string(Token::Type type)
+// Deserialization
+
+inline constexpr std::string
+token_type_to_string(Token::Type type)
 {
     switch (type)
     {
@@ -308,6 +343,16 @@ inline constexpr TokenIterator tokenize(CharIterator begin, CharIterator end, To
     return output;
 }
 
+template <class Container, typename T>
+inline constexpr T json_deserialize(Container json)
+{
+    T output;
+    std::vector<Token> tokens{};
+    tokenize(std::begin(json), std::end(json), std::back_inserter(tokens));
+    parse_tokenstream(tokens.begin(), tokens.end(), output);
+    return output;
+}
+
 #define PARSE_TOKENSTREAM_IMPL(TYPE, TOKEN_TYPE, PARSER)                                                      \
     template <class TokenIterator>                                                                            \
     inline constexpr TokenIterator parse_tokenstream(TokenIterator begin, TokenIterator end, TYPE &output)    \
@@ -422,4 +467,69 @@ inline constexpr TokenIterator is_last_in_list(TokenIterator begin, TokenIterato
     if (!is_last)
         return ++begin;
     return begin;
+}
+
+// Serialization
+template <class OutputIterator>
+inline constexpr OutputIterator serialize_to_json(const char *const &object, OutputIterator output)
+{
+    *output++ = '"';
+    output = std::copy(object, object + strlen(object), output);
+    *output++ = '"';
+    return output;
+}
+
+#define SERIALIZE_TO_JSON_IMPL_PRIMITIVE(Type)                                                   \
+    template <class OutputIterator>                                                              \
+    inline constexpr OutputIterator serialize_to_json(Type const &object, OutputIterator output) \
+    {                                                                                            \
+        char num_str[NUMBER_DIGIT_COUNT] = {0};                                                  \
+        std::to_chars(num_str, num_str + NUMBER_DIGIT_COUNT, object);                            \
+        char *fst = num_str;                                                                     \
+        while (*fst)                                                                             \
+        {                                                                                        \
+            *output++ = *fst++;                                                                  \
+        }                                                                                        \
+        return output;                                                                           \
+    }
+
+SERIALIZE_TO_JSON_IMPL_PRIMITIVE(uint8_t)
+SERIALIZE_TO_JSON_IMPL_PRIMITIVE(uint16_t)
+SERIALIZE_TO_JSON_IMPL_PRIMITIVE(uint32_t)
+SERIALIZE_TO_JSON_IMPL_PRIMITIVE(uint64_t)
+SERIALIZE_TO_JSON_IMPL_PRIMITIVE(int8_t)
+SERIALIZE_TO_JSON_IMPL_PRIMITIVE(int16_t)
+SERIALIZE_TO_JSON_IMPL_PRIMITIVE(int32_t)
+SERIALIZE_TO_JSON_IMPL_PRIMITIVE(int64_t)
+SERIALIZE_TO_JSON_IMPL_PRIMITIVE(float)
+SERIALIZE_TO_JSON_IMPL_PRIMITIVE(double)
+
+template <class OutputIterator, class Container>
+inline constexpr OutputIterator serialize_to_json(Container const &object, OutputIterator output)
+    requires(std::same_as<typename Container::value_type, char>)
+{
+    *output++ = '"';
+    output = std::copy(std::begin(object), std::end(object), output);
+    *output++ = '"';
+    return output;
+}
+
+template <class OutputIterator, class Container>
+inline constexpr OutputIterator serialize_to_json(Container const &object, OutputIterator output)
+{
+    {
+        *output++ = '[';
+        bool isFirst = true;
+        for (auto &element : object)
+        {
+            if (!isFirst)
+            {
+                *output++ = ',';
+            }
+            isFirst = false;
+            output = serialize_to_json(element, output);
+        }
+        *output++ = ']';
+        return output;
+    }
 }
