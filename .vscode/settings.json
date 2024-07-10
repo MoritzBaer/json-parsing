@@ -48,7 +48,9 @@
         "charconv": "cpp",
         "span": "cpp",
         "algorithm": "cpp",
-        "optional": "cpp"
+        "optional": "cpp",
+        "map": "cpp",
+        "xtree": "cpp"
     },
     "[c]": {
         "editor.wordBasedSuggestions": "off",

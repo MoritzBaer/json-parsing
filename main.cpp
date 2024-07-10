@@ -6,11 +6,18 @@
 
 #include "json-parsing.h"
 
+template <typename Dimension_T>
 struct Image
 {
     std::string url;
-    int x, y;
+    Dimension_T x, y;
 };
+
+template <typename Dimension_T>
+PARTIALLY_SPECIALIZED_JSON(Image<Dimension_T>)
+TEMPLATED_OBJECT_PARSER(typename Dimension_T, Image<Dimension_T>, FIELD_PARSER(url) FIELD_PARSER(x) FIELD_PARSER(y));
+TEMPLATED_OBJECT_SERIALIZER(typename Dimension_T, Image<Dimension_T>, FIELD_SERIALIZER(url) FIELD_SERIALIZER(x) FIELD_SERIALIZER(y));
+
 struct Comment
 {
     std::string author;
@@ -23,17 +30,14 @@ struct BlogPost
     std::string author;
     std::string content;
     uint64_t timestamp;
-    Image image;
+    Image<uint16_t> image;
     std::vector<Comment> comments;
 };
 
-OBJECT_PARSER(Image, FIELD_PARSER(url) FIELD_PARSER(x) FIELD_PARSER(y));
-
 OBJECT_PARSER(Comment, FIELD_PARSER(author) FIELD_PARSER(content) FIELD_PARSER(timestamp));
 
-OBJECT_PARSER(BlogPost, FIELD_PARSER(title) FIELD_PARSER(author) FIELD_PARSER(content) FIELD_PARSER(timestamp) FIELD_PARSER(image) FIELD_PARSER_ARRAY(comments));
+OBJECT_PARSER(BlogPost, FIELD_PARSER(title) FIELD_PARSER(author) FIELD_PARSER(content) FIELD_PARSER(timestamp) FIELD_PARSER(image) FIELD_PARSER(comments));
 
-OBJECT_SERIALIZER(Image, FIELD_SERIALIZER(url) FIELD_SERIALIZER(x) FIELD_SERIALIZER(y));
 OBJECT_SERIALIZER(Comment, FIELD_SERIALIZER(author) FIELD_SERIALIZER(content) FIELD_SERIALIZER(timestamp));
 OBJECT_SERIALIZER(BlogPost, FIELD_SERIALIZER(title) FIELD_SERIALIZER(author) FIELD_SERIALIZER(content) FIELD_SERIALIZER(timestamp) FIELD_SERIALIZER(image) FIELD_SERIALIZER(comments));
 
@@ -77,7 +81,7 @@ inline constexpr std::vector<char> prettify_json(std::vector<char> json)
 
 int main()
 {
-    std::string json = R"(
+    std::string json_string = R"(
         {
             "author": "Jane Doe",
             "image": {
@@ -101,10 +105,10 @@ int main()
                 }
             ]
             })";
-    BlogPost post = json_deserialize<std::string, BlogPost>(json);
+    BlogPost post = json<BlogPost>::deserialize<std::string>(json_string);
 
     std::vector<char> out_json{};
-    serialize_to_json(post, std::back_inserter(out_json));
+    json<BlogPost>::serialize(post, std::back_inserter(out_json));
     out_json = prettify_json(out_json);
 
     std::string out_json_str(out_json.begin(), out_json.end());
