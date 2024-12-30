@@ -245,6 +245,7 @@ inline constexpr TokenIterator tokenize(CharIterator begin, CharIterator end, To
       case 'n':
         state = TokenizerState::ReadingNull;
         break;
+      case '-':
       case '0':
       case '1':
       case '2':
