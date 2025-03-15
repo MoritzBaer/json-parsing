@@ -6,27 +6,33 @@
 
 #include "json-parsing.h"
 
-struct Image {
+struct Image
+{
+  uint8_t colourFormat;
   virtual uint32_t getAveragePixelValue() = 0;
 };
 
-struct StoredImage : public Image {
+struct StoredImage : public Image
+{
   std::vector<uint8_t> data;
   uint16_t x, y;
 
-  uint32_t getAveragePixelValue() override {
+  uint32_t getAveragePixelValue() override
+  {
     uint32_t sum = 0;
-    for (uint8_t pixel : data) {
+    for (uint8_t pixel : data)
+    {
       sum += pixel;
     }
     return sum / data.size();
   }
 };
 
-OBJECT_PARSER(StoredImage, FIELD_PARSER(data) FIELD_PARSER(x) FIELD_PARSER(y));
-OBJECT_SERIALIZER(StoredImage, FIELD_SERIALIZER(data) FIELD_SERIALIZER(x) FIELD_SERIALIZER(y));
+JSON(StoredImage, FIELDS(data, x, y));
 
-template <typename Dimension_T> struct RemoteImage : public Image {
+template <typename Dimension_T>
+struct RemoteImage : public Image
+{
   std::string url;
   Dimension_T x, y;
 
@@ -35,23 +41,17 @@ template <typename Dimension_T> struct RemoteImage : public Image {
 
 template <typename Dimension_T>
 PARTIALLY_SPECIALIZED_JSON(RemoteImage<Dimension_T>)
-TEMPLATED_OBJECT_PARSER(typename Dimension_T, RemoteImage<Dimension_T>,
-                        FIELD_PARSER(url) FIELD_PARSER(x) FIELD_PARSER(y));
-TEMPLATED_OBJECT_SERIALIZER(typename Dimension_T, RemoteImage<Dimension_T>,
-                            FIELD_SERIALIZER(url) FIELD_SERIALIZER(x) FIELD_SERIALIZER(y));
+TEMPLATED_JSON(typename Dimension_T, RemoteImage<Dimension_T>, FIELDS(url, x, y));
+JSON(Image *, POINTER_FIELDS(colourFormat), SUBTYPES(StoredImage, RemoteImage<uint16_t>));
 
-ABSTRACT_OBJECT_PARSER(Image, ,
-                       INHERITANCE_PARSER(Image, StoredImage) INHERITANCE_PARSER(Image, RemoteImage<uint16_t>));
-ABSTRACT_OBJECT_SERIALIZER(Image, ,
-                           INHERITANCE_SERIALIZER(Image, StoredImage)
-                               INHERITANCE_SERIALIZER(Image, RemoteImage<uint16_t>));
-
-struct Comment {
+struct Comment
+{
   std::string author;
   std::string content;
   uint64_t timestamp;
 };
-struct BlogPost {
+struct BlogPost
+{
   std::string title;
   std::string author;
   std::string content;
@@ -60,28 +60,27 @@ struct BlogPost {
   std::vector<Comment> comments;
 };
 
-OBJECT_PARSER(Comment, FIELD_PARSER(author) FIELD_PARSER(content) FIELD_PARSER(timestamp));
+JSON(Comment, FIELDS(author, content, timestamp))
+JSON(BlogPost, FIELDS(title, author, content, timestamp, image, comments));
 
-OBJECT_PARSER(BlogPost, FIELD_PARSER(title) FIELD_PARSER(author) FIELD_PARSER(content) FIELD_PARSER(timestamp)
-                            FIELD_PARSER(image) FIELD_PARSER(comments));
-
-OBJECT_SERIALIZER(Comment, FIELD_SERIALIZER(author) FIELD_SERIALIZER(content) FIELD_SERIALIZER(timestamp));
-OBJECT_SERIALIZER(BlogPost, FIELD_SERIALIZER(title) FIELD_SERIALIZER(author) FIELD_SERIALIZER(content)
-                                FIELD_SERIALIZER(timestamp) FIELD_SERIALIZER(comments) FIELD_SERIALIZER(image));
-
-inline constexpr void line_break(std::vector<char> &json, int indent) {
+inline constexpr void line_break(std::vector<char> &json, int indent)
+{
   json.push_back('\n');
-  for (int i = 0; i < indent; i++) {
+  for (int i = 0; i < indent; i++)
+  {
     json.push_back('\t');
   }
 }
 
-inline std::vector<char> prettify_json(std::vector<char> json) {
+inline std::vector<char> prettify_json(std::vector<char> const &json)
+{
   std::vector<char> pretty_json{};
   int indent = 0;
-  for (int i = 0; i < json.size(); i++) {
+  for (int i = 0; i < json.size(); i++)
+  {
     char c = json[i];
-    if (c == '}' || c == ']') {
+    if (c == '}' || c == ']')
+    {
       line_break(pretty_json, --indent);
       pretty_json.push_back(c);
       if (i < json.size() - 1 && json[i + 1] != ',')
@@ -90,20 +89,25 @@ inline std::vector<char> prettify_json(std::vector<char> json) {
     }
 
     pretty_json.push_back(c);
-    if (c == '{' || c == '[') {
+    if (c == '{' || c == '[')
+    {
       line_break(pretty_json, ++indent);
-    } else if (c == ',') {
+    }
+    else if (c == ',')
+    {
       line_break(pretty_json, indent);
     }
   }
   return pretty_json;
 }
 
-int main() {
+int main()
+{
   std::string json_string = R"(
         {
             "author": "Jane Doe",
             "image": {
+
                 "RemoteImage<uint16_t>": {
                     "url": "https://google.com",
                     "x": 800,
