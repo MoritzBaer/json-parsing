@@ -139,6 +139,8 @@ private:
 #define PARSE_POINTER_FIELDS(...) FOR_EACH(POINTER_FIELD_PARSER, __VA_ARGS__)
 #define PARSE_SUBTYPES(...) FOR_EACH(INHERITANCE_PARSER, __VA_ARGS__)
 
+#define __UNEXPECTED_FIELD_ERROR(...) throw std::runtime_error("Unexpected key in " #__VA_ARGS__ " : " + key);
+
 #define TEMPLATED_OBJECT_PARSER(TemplateArgs, ObjectType, ...)                                               \
   template <TemplateArgs>                                                                                    \
   template <class TokenIterator>                                                                             \
@@ -153,8 +155,7 @@ private:
       do                                                                                                     \
       {                                                                                                      \
         begin = parse_key(begin, end, key);                                                                  \
-        __VA_ARGS__ { throw std::runtime_error("Unexpected key in " #ObjectType " : " + key); }              \
-        begin = is_last_in_list(begin, end, is_last);                                                        \
+        __VA_ARGS__{__UNEXPECTED_FIELD_ERROR(ObjectType)} begin = is_last_in_list(begin, end, is_last);      \
       } while (!is_last);                                                                                    \
       return ++begin;                                                                                        \
     }                                                                                                        \
@@ -195,7 +196,7 @@ private:
 
 #define SERIALIZE_FIELDS(...) FOR_EACH(FIELD_SERIALIZER, __VA_ARGS__)
 #define SERIALIZE_POINTER_FIELDS(...) FOR_EACH(POINTER_FIELD_SERIALIZER, __VA_ARGS__)
-#define SERIALIZE_SUBTYPES(...) FOR_EACH(INHERITANCE_SERIALIZER, __VA_ARGS__)
+#define SERIALIZE_SUBTYPES(...) FOR_EACH(INHERITANCE_SERIALIZER, __PROTECT(__VA_ARGS__))
 
 #define TEMPLATED_OBJECT_SERIALIZER(TemplateArgs, ObjectType, ...)                                             \
   template <TemplateArgs>                                                                                      \
@@ -217,16 +218,18 @@ private:
 
 #define __CAT(a, b) a##b
 #define __CONCAT(a, b) __CAT(a, b)
-#define __CONCAT_FOR_PARSING(a) __CONCAT(PARSE_, a)
+#define __CONCAT_FOR_PARSING(a) __CONCAT(PARSE_, __PROTECT(a))
 #define __FOR_PARSING(...) __UP_TO_TWICE(__CONCAT_FOR_PARSING, __VA_ARGS__)
-#define __CONCAT_FOR_SERIALIZING(a) __CONCAT(SERIALIZE_, a)
+#define __CONCAT_FOR_SERIALIZING(a) __CONCAT(SERIALIZE_, __PROTECT(a))
 #define __FOR_SERIALIZING(...) __UP_TO_TWICE(__CONCAT_FOR_SERIALIZING, __VA_ARGS__)
 
-#define TEMPLATED_JSON(TemplateArgs, ObjectType, ...)                           \
-  TEMPLATED_OBJECT_PARSER(TemplateArgs, ObjectType, __FOR_PARSING(__VA_ARGS__)) \
-  TEMPLATED_OBJECT_SERIALIZER(TemplateArgs, ObjectType, __FOR_SERIALIZING(__VA_ARGS__))
+#define TEMPLATE_ARGS(...) __VA_ARGS__
 
-#define JSON(ObjectType, ...) TEMPLATED_JSON(, ObjectType, __VA_ARGS__)
+#define TEMPLATED_JSON(TemplateArgs, ObjectType, ...)                                                            \
+  TEMPLATED_OBJECT_PARSER(__PROTECT(TemplateArgs), __PROTECT(ObjectType), __FOR_PARSING(__PROTECT(__VA_ARGS__))) \
+  TEMPLATED_OBJECT_SERIALIZER(__PROTECT(TemplateArgs), __PROTECT(ObjectType), __FOR_SERIALIZING(__PROTECT(__VA_ARGS__)))
+
+#define JSON(ObjectType, ...) TEMPLATED_JSON(TEMPLATE_ARGS(), __PROTECT(ObjectType), __PROTECT(__VA_ARGS__))
 
 // +-----------------+
 // | IMPLEMENTATIONS |
@@ -633,13 +636,14 @@ inline constexpr OutputIterator ContainerSerializer<char>::serialize(Container c
   *output++ = '"';
   return output;
 }
+
 template <typename T>
 template <class OutputIterator, class Container>
 inline constexpr OutputIterator ContainerSerializer<T>::serialize(Container const &container, OutputIterator output)
 {
   *output++ = '[';
   bool isFirst = true;
-  for (auto element :
+  for (auto const &element :
        container) // TODO: Profile, consider using references and std::remove_reference, std::remove_const if slow
   {
     if (!isFirst)
@@ -647,10 +651,18 @@ inline constexpr OutputIterator ContainerSerializer<T>::serialize(Container cons
       *output++ = ',';
     }
     isFirst = false;
-    output = json<decltype(element)>::serialize(element, output);
+    output = json<typename Container::value_type>::serialize(element, output);
   }
   *output++ = ']';
   return output;
+}
+
+// I do not understand why this is necessary, the general implementation below **should** cover this, but for some reason it does not, so here we are!
+template <typename T, uint64_t n>
+template <class OutputIterator>
+inline constexpr OutputIterator json<std::array<T, n>>::serialize(std::array<T, n> const &object, OutputIterator output)
+{
+  return ContainerSerializer<T>::serialize(object, output);
 }
 
 template <class Container>

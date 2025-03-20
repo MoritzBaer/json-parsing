@@ -1,10 +1,11 @@
+#include "json-parsing.h"
+
 #include <charconv>
 #include <iostream>
 #include <span>
 #include <string>
 #include <vector>
-
-#include "json-parsing.h"
+#include <array>
 
 struct Image
 {
@@ -39,10 +40,30 @@ struct RemoteImage : public Image
   uint32_t getAveragePixelValue() override { return 0x99999999; }
 };
 
+template <uint8_t columns, uint8_t rows>
+struct Table
+{
+  std::array<std::array<std::string, columns>, rows> entries;
+  // std::vector<std::string> entries;
+};
+
+template <uint8_t c, uint8_t r>
+PARTIALLY_SPECIALIZED_JSON(Table<TEMPLATE_ARGS(c, r)>);
+TEMPLATED_JSON(TEMPLATE_ARGS(uint8_t c, uint8_t r), Table<TEMPLATE_ARGS(c, r)>, FIELDS(entries));
+
+struct BinaryTable : public Image
+{
+  Table<2, 2> content;
+
+  uint32_t getAveragePixelValue() override { return 0x10000000; }
+};
+
+JSON(BinaryTable, FIELDS(content))
+
 template <typename Dimension_T>
 PARTIALLY_SPECIALIZED_JSON(RemoteImage<Dimension_T>)
 TEMPLATED_JSON(typename Dimension_T, RemoteImage<Dimension_T>, FIELDS(url, x, y));
-JSON(Image *, POINTER_FIELDS(colourFormat), SUBTYPES(StoredImage, RemoteImage<uint16_t>));
+JSON(Image *, SUBTYPES(RemoteImage<uint16_t>, StoredImage, BinaryTable), POINTER_FIELDS(colourFormat)); // IMPORTANT NOTE: Subtypes with more than one template parameter do not currently work. I'm not sure if that would even be possible. Also the fields must be declared after the pointers to allow reparsing of serialized objects.
 
 struct Comment
 {
@@ -50,6 +71,7 @@ struct Comment
   std::string content;
   uint64_t timestamp;
 };
+
 struct BlogPost
 {
   std::string title;
@@ -57,6 +79,7 @@ struct BlogPost
   std::string content;
   uint64_t timestamp;
   Image *image;
+
   std::vector<Comment> comments;
 };
 
@@ -76,26 +99,43 @@ inline std::vector<char> prettify_json(std::vector<char> const &json)
 {
   std::vector<char> pretty_json{};
   int indent = 0;
+  bool inString = false;
   for (int i = 0; i < json.size(); i++)
   {
     char c = json[i];
+    if (c == '"')
+    {
+      inString = !inString;
+    }
     if (c == '}' || c == ']')
     {
-      line_break(pretty_json, --indent);
+      if (!inString)
+        line_break(pretty_json, --indent);
       pretty_json.push_back(c);
       if (i < json.size() - 1 && json[i + 1] != ',')
-        line_break(pretty_json, indent);
+      {
+        if (!inString)
+          line_break(pretty_json, indent);
+      }
+      continue;
+    }
+
+    if (c == '\n')
+    {
+      line_break(pretty_json, indent);
       continue;
     }
 
     pretty_json.push_back(c);
     if (c == '{' || c == '[')
     {
-      line_break(pretty_json, ++indent);
+      if (!inString)
+        line_break(pretty_json, ++indent);
     }
     else if (c == ',')
     {
-      line_break(pretty_json, indent);
+      if (!inString)
+        line_break(pretty_json, indent);
     }
   }
   return pretty_json;
@@ -162,6 +202,26 @@ int main()
   std::cout << std::string(out_json.begin(), out_json.end()) << std::endl;
 
   BlogPost parsedPost2 = json<BlogPost>::deserialize<std::vector<char>>(out_json);
+
+  out_json = {};
+  json<BlogPost>::serialize(parsedPost2, std::back_inserter(out_json));
+
+  out_json = prettify_json(out_json);
+  std::cout << std::string(out_json.begin(), out_json.end()) << std::endl;
+
+  BinaryTable table = {};
+  table.content.entries[0] = {"top left", "bottom left"};
+  table.content.entries[1] = {"top right", "bottom right"};
+
+  post2.image = &table;
+
+  out_json = {};
+  json<BlogPost>::serialize(post2, std::back_inserter(out_json));
+  out_json = prettify_json(out_json);
+
+  std::cout << std::string(out_json.begin(), out_json.end()) << std::endl;
+
+  parsedPost2 = json<BlogPost>::deserialize<std::vector<char>>(out_json);
 
   out_json = {};
   json<BlogPost>::serialize(parsedPost2, std::back_inserter(out_json));
