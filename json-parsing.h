@@ -2,7 +2,6 @@
 
 #include "pp-foreach.h"
 
-#include <algorithm>
 #include <charconv>
 #include <iterator>
 #include <stdexcept>
