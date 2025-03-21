@@ -1,9 +1,6 @@
 #include "json-parsing.h"
 
-#include <charconv>
 #include <iostream>
-#include <span>
-#include <string>
 #include <vector>
 #include <array>
 
@@ -43,7 +40,6 @@ template <uint8_t columns, uint8_t rows>
 struct Table
 {
   std::array<std::array<std::string, columns>, rows> entries;
-  // std::vector<std::string> entries;
 };
 
 template <uint8_t c, uint8_t r>

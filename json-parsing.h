@@ -6,7 +6,6 @@
 #include <iterator>
 #include <stdexcept>
 #include <string>
-#include <type_traits>
 
 #define NUMBER_DIGIT_COUNT 16
 
