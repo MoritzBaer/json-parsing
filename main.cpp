@@ -28,7 +28,6 @@ struct StoredImage : public Image
     return sum / data.size();
   }
 };
-
 JSON(StoredImage, FIELDS(data, x, y));
 
 template <typename Dimension_T>
