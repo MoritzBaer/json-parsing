@@ -302,7 +302,7 @@ JSON_IMPL_PRIMITIVE(int8_t, Integer, static_cast<int8_t>(std::atoi(stream->value
 JSON_IMPL_PRIMITIVE(int16_t, Integer, static_cast<int16_t>(std::atoi(stream->value)))
 JSON_IMPL_PRIMITIVE(int32_t, Integer, static_cast<int32_t>(std::atoi(stream->value)))
 JSON_IMPL_PRIMITIVE(int64_t, Integer, static_cast<int64_t>(std::atol(stream->value)))
-JSON_IMPL_PRIMITIVE(float, Float || stream->type == Token::Type::Integer, std::atof(stream->value))
+JSON_IMPL_PRIMITIVE(float, Float || stream->type == Token::Type::Integer, static_cast<float>(std::atof(stream->value)))
 JSON_IMPL_PRIMITIVE(double, Float || stream->type == Token::Type::Integer, std::atof(stream->value))
 
 template <>
@@ -528,7 +528,7 @@ public:
     return *this;
   }
 
-  inline Tokenizer<CharIterator> const &operator++(int)
+  inline Tokenizer<CharIterator> operator++(int)
   {
     auto it = cursor;
     auto it_e = cursor;
