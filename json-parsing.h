@@ -9,17 +9,15 @@
 
 #define NUMBER_DIGIT_COUNT 16
 
-#define REACT_WITH_TOKENIZER_ERROR()                 \
-  currentToken = {Token::Type::Error, &*cursor, 10}; \
+#define REACT_WITH_TOKENIZER_ERROR()                                                                                   \
+  currentToken = {Token::Type::Error, &*cursor, 10};                                                                   \
   return *this;
 
 // Allow separation of template arguments in macro
 #define COMMA ,
 
-struct Token
-{
-  enum class Type
-  {
+struct Token {
+  enum class Type {
     String,
     Integer,
     Float,
@@ -41,8 +39,7 @@ struct Token
   size_t length;
 };
 
-enum class TokenizerState
-{
+enum class TokenizerState {
   None,
   StartingString,
   ReadingString,
@@ -61,146 +58,130 @@ constexpr inline bool isValidDelimiter(char c) { return c == ',' || c == '}' || 
 
 // Deserialization
 
-template <typename T>
-struct json
-{
-  template <typename T_Other>
-  friend struct json;
+template <typename T> struct json {
+  template <typename T_Other> friend struct json;
 
-  template <class Container>
-  static constexpr T deserialize(Container json);
-  template <class Container>
-  static constexpr void deserialize(Container json, T &output);
-  template <class OutputIterator>
-  static constexpr OutputIterator serialize(T const &object, OutputIterator output);
+  template <class Container> static constexpr T deserialize(Container json);
+  template <class Container> static constexpr void deserialize(Container json, T &output);
+  template <class OutputIterator> static constexpr OutputIterator serialize(T const &object, OutputIterator output);
 
 private:
-  template <class TokenStream>
-  static constexpr TokenStream parse_tokenstream(TokenStream &stream, T &output);
+  template <class TokenStream> static constexpr TokenStream parse_tokenstream(TokenStream &stream, T &output);
 };
 
-#define PARTIALLY_SPECIALIZED_JSON(Type)                                                  \
-  struct json<Type>                                                                       \
-  {                                                                                       \
-    template <typename T_Other>                                                           \
-    friend struct json;                                                                   \
-                                                                                          \
-    template <class Container>                                                            \
-    static constexpr Type deserialize(Container json)                                     \
-    {                                                                                     \
-      Type res;                                                                           \
-      deserialize(json, res);                                                             \
-      return res;                                                                         \
-    }                                                                                     \
-    template <class Container>                                                            \
-    static constexpr void deserialize(Container json, Type &output)                       \
-    {                                                                                     \
-      parse_tokenstream(Tokenizer(std::begin(json)), Tokenizer(std::end(json)), output);  \
-    }                                                                                     \
-    template <class OutputIterator>                                                       \
-    static constexpr OutputIterator serialize(Type const &object, OutputIterator output); \
-                                                                                          \
-  private:                                                                                \
-    template <class TokenStream>                                                          \
-    static constexpr TokenStream parse_tokenstream(TokenStream &stream, Type &output);    \
+#define PARTIALLY_SPECIALIZED_JSON(Type)                                                                               \
+  struct json<Type> {                                                                                                  \
+    template <typename T_Other> friend struct json;                                                                    \
+                                                                                                                       \
+    template <class Container> static constexpr Type deserialize(Container json) {                                     \
+      Type res;                                                                                                        \
+      deserialize(json, res);                                                                                          \
+      return res;                                                                                                      \
+    }                                                                                                                  \
+    template <class Container> static constexpr void deserialize(Container json, Type &output) {                       \
+      parse_tokenstream(Tokenizer(std::begin(json)), Tokenizer(std::end(json)), output);                               \
+    }                                                                                                                  \
+    template <class OutputIterator>                                                                                    \
+    static constexpr OutputIterator serialize(Type const &object, OutputIterator output);                              \
+                                                                                                                       \
+  private:                                                                                                             \
+    template <class TokenStream> static constexpr TokenStream parse_tokenstream(TokenStream &stream, Type &output);    \
   };
 
-#define FIELD_PARSER(Name)                                                        \
-  if (key == #Name)                                                               \
-  {                                                                               \
-    stream = json<decltype(output.Name)>::parse_tokenstream(stream, output.Name); \
-  }                                                                               \
-  else
+#define FIELD_PARSER(Name)                                                                                             \
+  if (key == #Name) {                                                                                                  \
+    stream = json<decltype(output.Name)>::parse_tokenstream(stream, output.Name);                                      \
+  } else
 
-#define POINTER_FIELD_PARSER(Name)                                                  \
-  if (key == #Name)                                                                 \
-  {                                                                                 \
-    stream = json<decltype(output->Name)>::parse_tokenstream(stream, output->Name); \
-  }                                                                                 \
-  else
+#define POINTER_FIELD_PARSER(Name)                                                                                     \
+  if (key == #Name) {                                                                                                  \
+    stream = json<decltype(output->Name)>::parse_tokenstream(stream, output->Name);                                    \
+  } else
 
-#define INHERITANCE_PARSER(InheritingType)                                                             \
-  if (key == #InheritingType)                                                                          \
-  {                                                                                                    \
-    output = new InheritingType();                                                                     \
-    stream = json<InheritingType>::parse_tokenstream(stream, *dynamic_cast<InheritingType *>(output)); \
-  }                                                                                                    \
-  else
+#define INHERITANCE_PARSER(InheritingType)                                                                             \
+  if (key == #InheritingType) {                                                                                        \
+    output = new InheritingType();                                                                                     \
+    stream = json<InheritingType>::parse_tokenstream(stream, *dynamic_cast<InheritingType *>(output));                 \
+  } else
 
 #define PARSE_FIELDS(...) FOR_EACH(FIELD_PARSER, __VA_ARGS__)
 #define PARSE_POINTER_FIELDS(...) FOR_EACH(POINTER_FIELD_PARSER, __VA_ARGS__)
 #define PARSE_SUBTYPES(...) FOR_EACH(INHERITANCE_PARSER, __VA_ARGS__)
 
 #define __UNEXPECTED_FIELD_ERROR(...) throw std::runtime_error("Unexpected key in " #__VA_ARGS__ " : " + key);
+#define __OBJECT_NAME_FOR_ERROR_EXPANDED(...) #__VA_ARGS__
+#define __OBJECT_NAME_FOR_ERROR(...) __OBJECT_NAME_FOR_ERROR_EXPANDED(__VA_ARGS__)
 
-#define TEMPLATED_OBJECT_PARSER(TemplateArgs, ObjectType, ...)                                        \
-  template <TemplateArgs>                                                                             \
-  template <class TokenStream>                                                                        \
-  inline constexpr TokenStream json<ObjectType>::parse_tokenstream(TokenStream &stream,               \
-                                                                   ObjectType &output)                \
-  {                                                                                                   \
-    if (stream->type == Token::Type::LBrace)                                                          \
-    {                                                                                                 \
-      stream++;                                                                                       \
-      std::string key;                                                                                \
-      bool is_last;                                                                                   \
-      do                                                                                              \
-      {                                                                                               \
-        stream = parse_key(stream, key);                                                              \
-        __VA_ARGS__{__UNEXPECTED_FIELD_ERROR(ObjectType)} stream = is_last_in_list(stream, is_last);  \
-      } while (!is_last);                                                                             \
-      return ++stream;                                                                                \
-    }                                                                                                 \
-    throw std::runtime_error("Expected left brace, got " + token_type_to_string(stream->type) + "."); \
+#define TEMPLATED_OBJECT_PARSER(TemplateArgs, ObjectType, ...)                                                         \
+  template <TemplateArgs>                                                                                              \
+  template <class TokenStream>                                                                                         \
+  inline constexpr TokenStream json<ObjectType>::parse_tokenstream(TokenStream &stream, ObjectType &output) {          \
+    if (stream->type == Token::Type::LBrace) {                                                                         \
+      stream++;                                                                                                        \
+      if (stream->type == Token::Type::RBrace) {                                                                       \
+        return ++stream;                                                                                               \
+      }                                                                                                                \
+      std::string key;                                                                                                 \
+      bool is_last;                                                                                                    \
+      do {                                                                                                             \
+        stream = parse_key(stream, key);                                                                               \
+        __VA_ARGS__{__UNEXPECTED_FIELD_ERROR(ObjectType)} stream = is_last_in_list(stream, is_last);                   \
+      } while (!is_last);                                                                                              \
+      if (stream->type == Token::Type::RBrace) {                                                                       \
+        return ++stream;                                                                                               \
+      }                                                                                                                \
+      throw std::runtime_error("Expected right brace, got " + token_type_to_string(stream->type) +                     \
+                               " while parsing " __OBJECT_NAME_FOR_ERROR(ObjectType) ".");                             \
+    }                                                                                                                  \
+    throw std::runtime_error("Expected left brace, got " + token_type_to_string(stream->type) +                        \
+                             " while parsing " __OBJECT_NAME_FOR_ERROR(ObjectType) ".");                               \
   }
 
 #define OBJECT_PARSER(ObjectType, ...) TEMPLATED_OBJECT_PARSER(, ObjectType, __VA_ARGS__)
 
-#define FIELD_SERIALIZER(field)                           \
-  if (!first)                                             \
-    *output++ = ',';                                      \
-  first = false;                                          \
-  output = json<const char *>::serialize(#field, output); \
-  *output++ = ':';                                        \
-  *output++ = ' ';                                        \
+#define FIELD_SERIALIZER(field)                                                                                        \
+  if (!first)                                                                                                          \
+    *output++ = ',';                                                                                                   \
+  first = false;                                                                                                       \
+  output = json<const char *>::serialize(#field, output);                                                              \
+  *output++ = ':';                                                                                                     \
+  *output++ = ' ';                                                                                                     \
   output = json<decltype(object.field)>::serialize(object.field, output);
 
-#define POINTER_FIELD_SERIALIZER(field)                   \
-  if (!first)                                             \
-    *output++ = ',';                                      \
-  first = false;                                          \
-  output = json<const char *>::serialize(#field, output); \
-  *output++ = ':';                                        \
-  *output++ = ' ';                                        \
+#define POINTER_FIELD_SERIALIZER(field)                                                                                \
+  if (!first)                                                                                                          \
+    *output++ = ',';                                                                                                   \
+  first = false;                                                                                                       \
+  output = json<const char *>::serialize(#field, output);                                                              \
+  *output++ = ':';                                                                                                     \
+  *output++ = ' ';                                                                                                     \
   output = json<decltype(object->field)>::serialize(object->field, output);
 
-#define INHERITANCE_SERIALIZER(InheritingType)                                                 \
-  if (dynamic_cast<InheritingType *>(object))                                                  \
-  {                                                                                            \
-    if (!first)                                                                                \
-      *output++ = ',';                                                                         \
-    first = false;                                                                             \
-    output = json<const char *>::serialize(#InheritingType, output);                           \
-    *output++ = ':';                                                                           \
-    *output++ = ' ';                                                                           \
-    output = json<InheritingType>::serialize(*dynamic_cast<InheritingType *>(object), output); \
+#define INHERITANCE_SERIALIZER(InheritingType)                                                                         \
+  if (dynamic_cast<InheritingType *>(object)) {                                                                        \
+    if (!first)                                                                                                        \
+      *output++ = ',';                                                                                                 \
+    first = false;                                                                                                     \
+    output = json<const char *>::serialize(#InheritingType, output);                                                   \
+    *output++ = ':';                                                                                                   \
+    *output++ = ' ';                                                                                                   \
+    output = json<InheritingType>::serialize(*dynamic_cast<InheritingType *>(object), output);                         \
   }
 
 #define SERIALIZE_FIELDS(...) FOR_EACH(FIELD_SERIALIZER, __VA_ARGS__)
 #define SERIALIZE_POINTER_FIELDS(...) FOR_EACH(POINTER_FIELD_SERIALIZER, __VA_ARGS__)
 #define SERIALIZE_SUBTYPES(...) FOR_EACH(INHERITANCE_SERIALIZER, __PROTECT(__VA_ARGS__))
 
-#define TEMPLATED_OBJECT_SERIALIZER(TemplateArgs, ObjectType, ...)                                             \
-  template <TemplateArgs>                                                                                      \
-  template <class OutputIterator>                                                                              \
-  inline constexpr OutputIterator json<ObjectType>::serialize(ObjectType const &object, OutputIterator output) \
-  {                                                                                                            \
-    bool first = true;                                                                                         \
-    *output++ = '{';                                                                                           \
-    __VA_ARGS__                                                                                                \
-    *output++ = '}';                                                                                           \
-                                                                                                               \
-    return output;                                                                                             \
+#define TEMPLATED_OBJECT_SERIALIZER(TemplateArgs, ObjectType, ...)                                                     \
+  template <TemplateArgs>                                                                                              \
+  template <class OutputIterator>                                                                                      \
+  inline constexpr OutputIterator json<ObjectType>::serialize(ObjectType const &object, OutputIterator output) {       \
+    bool first = true;                                                                                                 \
+    *output++ = '{';                                                                                                   \
+    __VA_ARGS__                                                                                                        \
+    *output++ = '}';                                                                                                   \
+                                                                                                                       \
+    return output;                                                                                                     \
   }
 
 #define OBJECT_SERIALIZER(ObjectType, ...) TEMPLATED_OBJECT_SERIALIZER(, ObjectType, __VA_ARGS__)
@@ -217,11 +198,14 @@ private:
 
 #define TEMPLATE_ARGS(...) __VA_ARGS__
 
-#define TEMPLATED_JSON(TemplateArgs, ObjectType, ...)                                                            \
-  TEMPLATED_OBJECT_PARSER(__PROTECT(TemplateArgs), __PROTECT(ObjectType), __FOR_PARSING(__PROTECT(__VA_ARGS__))) \
-  TEMPLATED_OBJECT_SERIALIZER(__PROTECT(TemplateArgs), __PROTECT(ObjectType), __FOR_SERIALIZING(__PROTECT(__VA_ARGS__)))
+#define TEMPLATED_JSON(TemplateArgs, ObjectType, ...)                                                                  \
+  TEMPLATED_OBJECT_PARSER(__PROTECT(TemplateArgs),                                                                     \
+                          __PROTECT(ObjectType) __VA_OPT__(, __FOR_PARSING(__PROTECT(__VA_ARGS__))))                   \
+  TEMPLATED_OBJECT_SERIALIZER(__PROTECT(TemplateArgs),                                                                 \
+                              __PROTECT(ObjectType) __VA_OPT__(, __FOR_SERIALIZING(__PROTECT(__VA_ARGS__))))
 
-#define JSON(ObjectType, ...) TEMPLATED_JSON(TEMPLATE_ARGS(), __PROTECT(ObjectType), __PROTECT(__VA_ARGS__))
+#define JSON(ObjectType, ...)                                                                                          \
+  TEMPLATED_JSON(TEMPLATE_ARGS(), __PROTECT(ObjectType) __VA_OPT__(, __PROTECT(__VA_ARGS__)))
 
 // +-----------------+
 // | IMPLEMENTATIONS |
@@ -229,10 +213,8 @@ private:
 
 // Deserialization
 
-inline constexpr std::string token_type_to_string(Token::Type type)
-{
-  switch (type)
-  {
+inline constexpr std::string token_type_to_string(Token::Type type) {
+  switch (type) {
   case Token::Type::String:
     return "String";
   case Token::Type::Integer:
@@ -266,32 +248,28 @@ inline constexpr std::string token_type_to_string(Token::Type type)
   }
 }
 
-#define JSON_IMPL_PRIMITIVE(PrimitiveType, TokenType, Parser)                                                        \
-  template <>                                                                                                        \
-  template <class OutputIterator>                                                                                    \
-  static constexpr OutputIterator json<PrimitiveType>::serialize(PrimitiveType const &object, OutputIterator output) \
-  {                                                                                                                  \
-    char num_str[NUMBER_DIGIT_COUNT] = {0};                                                                          \
-    std::to_chars(num_str, num_str + NUMBER_DIGIT_COUNT, object);                                                    \
-    char *fst = num_str;                                                                                             \
-    while (*fst)                                                                                                     \
-    {                                                                                                                \
-      *output++ = *fst++;                                                                                            \
-    }                                                                                                                \
-    return output;                                                                                                   \
-  }                                                                                                                  \
-                                                                                                                     \
-  template <>                                                                                                        \
-  template <class TokenStream>                                                                                       \
-  inline constexpr TokenStream json<PrimitiveType>::parse_tokenstream(TokenStream &stream, PrimitiveType &output)    \
-  {                                                                                                                  \
-    if (stream->type == Token::Type::TokenType)                                                                      \
-    {                                                                                                                \
-      output = Parser;                                                                                               \
-      return ++stream;                                                                                               \
-    }                                                                                                                \
-                                                                                                                     \
-    throw std::runtime_error("Expected " #TokenType ", got " + token_type_to_string(stream->type) + ".");            \
+#define JSON_IMPL_PRIMITIVE(PrimitiveType, TokenType, Parser)                                                          \
+  template <>                                                                                                          \
+  template <class OutputIterator>                                                                                      \
+  static constexpr OutputIterator json<PrimitiveType>::serialize(PrimitiveType const &object, OutputIterator output) { \
+    char num_str[NUMBER_DIGIT_COUNT] = {0};                                                                            \
+    std::to_chars(num_str, num_str + NUMBER_DIGIT_COUNT, object);                                                      \
+    char *fst = num_str;                                                                                               \
+    while (*fst) {                                                                                                     \
+      *output++ = *fst++;                                                                                              \
+    }                                                                                                                  \
+    return output;                                                                                                     \
+  }                                                                                                                    \
+                                                                                                                       \
+  template <>                                                                                                          \
+  template <class TokenStream>                                                                                         \
+  inline constexpr TokenStream json<PrimitiveType>::parse_tokenstream(TokenStream &stream, PrimitiveType &output) {    \
+    if (stream->type == Token::Type::TokenType) {                                                                      \
+      output = Parser;                                                                                                 \
+      return ++stream;                                                                                                 \
+    }                                                                                                                  \
+                                                                                                                       \
+    throw std::runtime_error("Expected " #TokenType ", got " + token_type_to_string(stream->type) + ".");              \
   }
 
 JSON_IMPL_PRIMITIVE(uint8_t, Integer, static_cast<uint8_t>(std::atoi(stream->value)))
@@ -307,10 +285,8 @@ JSON_IMPL_PRIMITIVE(double, Float || stream->type == Token::Type::Integer, std::
 
 template <>
 template <class TokenStream>
-inline constexpr TokenStream json<std::string>::parse_tokenstream(TokenStream &stream, std::string &output)
-{
-  if (stream->type == Token::Type::String)
-  {
+inline constexpr TokenStream json<std::string>::parse_tokenstream(TokenStream &stream, std::string &output) {
+  if (stream->type == Token::Type::String) {
     output = std::string(stream->value, stream->length);
     return ++stream;
   }
@@ -320,15 +296,11 @@ inline constexpr TokenStream json<std::string>::parse_tokenstream(TokenStream &s
 
 template <>
 template <class TokenStream>
-inline constexpr TokenStream json<bool>::parse_tokenstream(TokenStream &stream, bool &output)
-{
-  if (stream->type == Token::Type::True)
-  {
+inline constexpr TokenStream json<bool>::parse_tokenstream(TokenStream &stream, bool &output) {
+  if (stream->type == Token::Type::True) {
     output = true;
     return ++stream;
-  }
-  else if (stream->type == Token::Type::False)
-  {
+  } else if (stream->type == Token::Type::False) {
     output = false;
     return ++stream;
   }
@@ -336,18 +308,14 @@ inline constexpr TokenStream json<bool>::parse_tokenstream(TokenStream &stream, 
   throw std::runtime_error("Expected True or False, got " + token_type_to_string(stream->type) + ".");
 }
 
-template <typename T, size_t n>
-PARTIALLY_SPECIALIZED_JSON(std::array<T COMMA n>);
-template <size_t n>
-PARTIALLY_SPECIALIZED_JSON(std::array<char COMMA n>);
+template <typename T, size_t n> PARTIALLY_SPECIALIZED_JSON(std::array<T COMMA n>);
+template <size_t n> PARTIALLY_SPECIALIZED_JSON(std::array<char COMMA n>);
 
 template <size_t n>
 template <class TokenStream>
 inline constexpr TokenStream json<std::array<char, n>>::parse_tokenstream(TokenStream &stream,
-                                                                          std::array<char, n> &output)
-{
-  if (stream->type == Token::Type::String)
-  {
+                                                                          std::array<char, n> &output) {
+  if (stream->type == Token::Type::String) {
     memcpy(output.data(), stream->value, std::min(n, stream->length));
     if (stream->length < output.size())
       output[stream->length] = 0;
@@ -359,21 +327,15 @@ inline constexpr TokenStream json<std::array<char, n>>::parse_tokenstream(TokenS
 
 template <typename T, size_t n>
 template <class TokenStream>
-inline constexpr TokenStream json<std::array<T, n>>::parse_tokenstream(TokenStream &stream,
-                                                                       std::array<T, n> &output)
-{
+inline constexpr TokenStream json<std::array<T, n>>::parse_tokenstream(TokenStream &stream, std::array<T, n> &output) {
   size_t i = 0;
-  if (stream->type == Token::Type::LBracket)
-  {
+  if (stream->type == Token::Type::LBracket) {
     stream++;
-    while (stream->type != Token::Type::RBracket)
-    {
+    while (stream->type != Token::Type::RBracket) {
       stream = json<T>::parse_tokenstream(stream, output[i++]);
-      if (stream->type == Token::Type::Comma)
-      {
+      if (stream->type == Token::Type::Comma) {
         stream++;
-        if (i >= n)
-        {
+        if (i >= n) {
           throw std::runtime_error("Expected at most " + std::to_string(n) + " elements, got more.");
         }
       }
@@ -386,20 +348,16 @@ inline constexpr TokenStream json<std::array<T, n>>::parse_tokenstream(TokenStre
 
 template <class T_Array>
 template <class TokenStream>
-inline constexpr TokenStream json<T_Array>::parse_tokenstream(TokenStream &stream, T_Array &output)
-{
+inline constexpr TokenStream json<T_Array>::parse_tokenstream(TokenStream &stream, T_Array &output) {
   auto output_it = std::back_inserter(output); // TODO: Maybe allow specifying the iterator type somehow? Alternatively
                                                // build more convenient back_inserter-like iterator
-  if (stream->type == Token::Type::LBracket)
-  {
+  if (stream->type == Token::Type::LBracket) {
     stream++;
-    while (stream->type != Token::Type::RBracket)
-    {
+    while (stream->type != Token::Type::RBracket) {
       typename T_Array::value_type element;
       stream = json<typename T_Array::value_type>::parse_tokenstream(stream, element);
       output_it++ = element;
-      if (stream->type == Token::Type::Comma)
-      {
+      if (stream->type == Token::Type::Comma) {
         stream++;
       }
     }
@@ -409,14 +367,10 @@ inline constexpr TokenStream json<T_Array>::parse_tokenstream(TokenStream &strea
   throw std::runtime_error("Expected left bracket, got " + token_type_to_string(stream->type) + ".");
 }
 
-template <class TokenStream>
-inline constexpr TokenStream parse_key(TokenStream &stream, std::string &key)
-{
-  if (stream->type == Token::Type::String)
-  {
+template <class TokenStream> inline constexpr TokenStream parse_key(TokenStream &stream, std::string &key) {
+  if (stream->type == Token::Type::String) {
     key = std::string(stream->value, stream->length);
-    if ((++stream)->type == Token::Type::Colon)
-    {
+    if ((++stream)->type == Token::Type::Colon) {
       return ++stream;
     }
   }
@@ -424,9 +378,7 @@ inline constexpr TokenStream parse_key(TokenStream &stream, std::string &key)
   throw std::runtime_error("Expected String, got " + token_type_to_string(stream->type) + ".");
 }
 
-template <class TokenStream>
-inline constexpr TokenStream is_last_in_list(TokenStream &stream, bool &is_last)
-{
+template <class TokenStream> inline constexpr TokenStream is_last_in_list(TokenStream &stream, bool &is_last) {
   is_last = stream->type != Token::Type::Comma;
   if (!is_last)
     return ++stream;
@@ -435,17 +387,14 @@ inline constexpr TokenStream is_last_in_list(TokenStream &stream, bool &is_last)
 
 template <>
 template <class OutputIterator>
-inline constexpr OutputIterator json<const char *>::serialize(const char *const &object, OutputIterator output)
-{
+inline constexpr OutputIterator json<const char *>::serialize(const char *const &object, OutputIterator output) {
   *output++ = '"';
   output = std::copy(object, object + strlen(object), output);
   *output++ = '"';
   return output;
 }
 
-template <typename T>
-struct ContainerSerializer
-{
+template <typename T> struct ContainerSerializer {
   template <class OutputIterator, class Container>
   inline static constexpr OutputIterator serialize(Container const &container, OutputIterator output);
 };
@@ -453,8 +402,7 @@ struct ContainerSerializer
 template <>
 template <class OutputIterator, class Container>
 inline constexpr OutputIterator ContainerSerializer<char>::serialize(Container const &container,
-                                                                     OutputIterator output)
-{
+                                                                     OutputIterator output) {
   *output++ = '"';
   output = std::copy(std::begin(container), std::end(container), output);
   *output++ = '"';
@@ -463,15 +411,13 @@ inline constexpr OutputIterator ContainerSerializer<char>::serialize(Container c
 
 template <typename T>
 template <class OutputIterator, class Container>
-inline constexpr OutputIterator ContainerSerializer<T>::serialize(Container const &container, OutputIterator output)
-{
+inline constexpr OutputIterator ContainerSerializer<T>::serialize(Container const &container, OutputIterator output) {
   *output++ = '[';
   bool isFirst = true;
   for (auto const &element :
        container) // TODO: Profile, consider using references and std::remove_reference, std::remove_const if slow
   {
-    if (!isFirst)
-    {
+    if (!isFirst) {
       *output++ = ',';
     }
     isFirst = false;
@@ -481,38 +427,34 @@ inline constexpr OutputIterator ContainerSerializer<T>::serialize(Container cons
   return output;
 }
 
-// I do not understand why this is necessary, the general implementation below **should** cover this, but for some reason it does not, so here we are!
+// I do not understand why this is necessary, the general implementation below **should** cover this, but for some
+// reason it does not, so here we are!
 template <typename T, uint64_t n>
 template <class OutputIterator>
-inline constexpr OutputIterator json<std::array<T, n>>::serialize(std::array<T, n> const &object, OutputIterator output)
-{
+inline constexpr OutputIterator json<std::array<T, n>>::serialize(std::array<T, n> const &object,
+                                                                  OutputIterator output) {
   return ContainerSerializer<T>::serialize(object, output);
 }
 
 template <class Container>
 template <class OutputIterator>
-inline constexpr OutputIterator json<Container>::serialize(Container const &object, OutputIterator output)
-{
+inline constexpr OutputIterator json<Container>::serialize(Container const &object, OutputIterator output) {
   return ContainerSerializer<typename Container::value_type>::serialize(object, output);
 }
 
-template <typename T>
-template <class Container>
-inline constexpr T json<T>::deserialize(Container json)
-{
+template <typename T> template <class Container> inline constexpr T json<T>::deserialize(Container json) {
   T res;
   deserialize(json, res);
   return res;
 }
 
-template <class CharIterator>
-class Tokenizer
-{
+template <class CharIterator> class Tokenizer {
   CharIterator cursor;
   CharIterator end;
   Token currentToken;
 
-  Tokenizer(CharIterator const &begin, CharIterator const &end, Token initialToken) : cursor(begin), end(end), currentToken(initialToken) {}
+  Tokenizer(CharIterator const &begin, CharIterator const &end, Token initialToken)
+      : cursor(begin), end(end), currentToken(initialToken) {}
 
 public:
   Tokenizer(CharIterator const &begin, CharIterator const &end) : cursor(begin), end(end), currentToken() {}
@@ -521,15 +463,13 @@ public:
 
   inline Token &operator*() const { return currentToken; }
   inline Token *operator->() { return &currentToken; }
-  inline Tokenizer<CharIterator> &operator=(Tokenizer<CharIterator> const &other)
-  {
+  inline Tokenizer<CharIterator> &operator=(Tokenizer<CharIterator> const &other) {
     cursor = other.cursor;
     currentToken = other.currentToken;
     return *this;
   }
 
-  inline Tokenizer<CharIterator> operator++(int)
-  {
+  inline Tokenizer<CharIterator> operator++(int) {
     auto it = cursor;
     auto it_e = cursor;
     auto tok = currentToken;
@@ -537,19 +477,15 @@ public:
     return Tokenizer<CharIterator>(it, it_e, tok);
   }
 
-  inline Tokenizer<CharIterator> &operator++()
-  {
+  inline Tokenizer<CharIterator> &operator++() {
     TokenizerState state = TokenizerState::None;
     const char *value = nullptr;
     size_t length = 0;
 
-    while (cursor != end)
-    {
-      switch (state)
-      {
+    while (cursor != end) {
+      switch (state) {
       case TokenizerState::None:
-        switch (*cursor)
-        {
+        switch (*cursor) {
         case '{':
           currentToken = {Token::Type::LBrace, nullptr, 0};
           ++cursor;
@@ -603,8 +539,7 @@ public:
           length = 1;
           break;
         default:
-          if (!isWhitespace(*cursor))
-          {
+          if (!isWhitespace(*cursor)) {
             REACT_WITH_TOKENIZER_ERROR();
           }
           break;
@@ -615,82 +550,59 @@ public:
         value = &*cursor;
         state = TokenizerState::ReadingString;
       case TokenizerState::ReadingString:
-        if (*cursor++ == '"')
-        {
+        if (*cursor++ == '"') {
           currentToken = {Token::Type::String, value, length};
           return *this;
-        }
-        else
+        } else
           length++;
         break; // case TokenizerState::ReadingString
       case TokenizerState::ReadingNumber:
-        if (isDigit(*cursor))
-        {
+        if (isDigit(*cursor)) {
           length++;
           cursor++;
-        }
-        else if (*cursor == '.')
-        {
+        } else if (*cursor == '.') {
           state = TokenizerState::ReadingNumberAfterDecimalPoint;
           length++;
           cursor++;
-        }
-        else if (isValidDelimiter(*cursor))
-        {
+        } else if (isValidDelimiter(*cursor)) {
           currentToken = {Token::Type::Integer, value, length};
           return *this;
-        }
-        else
-        {
+        } else {
           REACT_WITH_TOKENIZER_ERROR();
         }
         break; // case TokenizerState::ReadingNumber
       case TokenizerState::ReadingNumberAfterDecimalPoint:
-        if (isDigit(*cursor))
-        {
+        if (isDigit(*cursor)) {
           length++;
           cursor++;
-        }
-        else if (isValidDelimiter(*cursor))
-        {
+        } else if (isValidDelimiter(*cursor)) {
           currentToken = {Token::Type::Float, value, length};
           return *this;
-        }
-        else
-        {
+        } else {
           REACT_WITH_TOKENIZER_ERROR();
         }
         break; // case TokenizerState::ReadingInteger
       case TokenizerState::ReadingTrue:
-        if (*cursor++ == 'r' && *cursor++ == 'u' && *cursor++ == 'e')
-        {
+        if (*cursor++ == 'r' && *cursor++ == 'u' && *cursor++ == 'e') {
           currentToken = {Token::Type::True, nullptr, 0};
           return *this;
-        }
-        else
-        {
+        } else {
           REACT_WITH_TOKENIZER_ERROR();
         }
         break; // case TokenizerState::ReadingTrue
       case TokenizerState::ReadingFalse:
-        if (*cursor++ == 'a' && *cursor++ == 'l' && *cursor++ == 's' && *cursor++ == 'e')
-        {
+        if (*cursor++ == 'a' && *cursor++ == 'l' && *cursor++ == 's' && *cursor++ == 'e') {
           currentToken = {Token::Type::False, nullptr, 0};
           return *this;
-        }
-        else
-        {
+        } else {
           REACT_WITH_TOKENIZER_ERROR();
         }
         break; // case TokenizerState::ReadingFalse
       case TokenizerState::ReadingNull:
-        if (*cursor++ == 'u' && *cursor++ == 'l' && *cursor++ == 'l')
-        {
+        if (*cursor++ == 'u' && *cursor++ == 'l' && *cursor++ == 'l') {
           currentToken = {Token::Type::Null, nullptr, 0};
           return *this;
-        }
-        else
-        {
+        } else {
           REACT_WITH_TOKENIZER_ERROR();
         }
         break; // case TokenizerState::ReadingNull
@@ -704,9 +616,6 @@ public:
   }
 };
 
-template <typename T>
-template <class Container>
-inline constexpr void json<T>::deserialize(Container json, T &output)
-{
+template <typename T> template <class Container> inline constexpr void json<T>::deserialize(Container json, T &output) {
   parse_tokenstream(++Tokenizer(std::begin(json), std::end(json)), output);
 }
