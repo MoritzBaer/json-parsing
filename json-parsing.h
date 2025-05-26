@@ -104,11 +104,19 @@ private:
     stream = json<InheritingType>::parse_tokenstream(stream, *dynamic_cast<InheritingType *>(output));                 \
   } else
 
+#define PARSE_ENUM_VALUE(Value)                                                                                        \
+  if (value == #Value) {                                                                                               \
+    output = Value;                                                                                                    \
+  } else
+
 #define PARSE_FIELDS(...) FOR_EACH(FIELD_PARSER, __VA_ARGS__)
 #define PARSE_POINTER_FIELDS(...) FOR_EACH(POINTER_FIELD_PARSER, __VA_ARGS__)
 #define PARSE_SUBTYPES(...) FOR_EACH(INHERITANCE_PARSER, __VA_ARGS__)
 
+#define PARSE_ENUM_VALUES(...) FOR_EACH(PARSE_ENUM_VALUE, __VA_ARGS__)
+
 #define __UNEXPECTED_FIELD_ERROR(...) throw std::runtime_error("Unexpected key in " #__VA_ARGS__ " : " + key);
+#define __UNEXPECTED_VALUE_ERROR(...) throw std::runtime_error("Unexpected value in " #__VA_ARGS__ " : " + value);
 #define __OBJECT_NAME_FOR_ERROR_EXPANDED(...) #__VA_ARGS__
 #define __OBJECT_NAME_FOR_ERROR(...) __OBJECT_NAME_FOR_ERROR_EXPANDED(__VA_ARGS__)
 
@@ -138,6 +146,21 @@ private:
   }
 
 #define OBJECT_PARSER(ObjectType, ...) TEMPLATED_OBJECT_PARSER(, ObjectType, __VA_ARGS__)
+
+#define ENUM_PARSER(EnumType, ...)                                                                                     \
+  template <>                                                                                                          \
+  template <class TokenStream>                                                                                         \
+  inline constexpr TokenStream json<EnumType>::parse_tokenstream(TokenStream &stream, EnumType &output) {              \
+    if (stream->type == Token::Type::String) {                                                                         \
+      std::string value = std::string(stream->value, stream->length);                                                  \
+      __VA_ARGS__ { __UNEXPECTED_VALUE_ERROR(ObjectType) }                                                             \
+      return ++stream;                                                                                                 \
+    } else if (stream->type == Token::Type::Integer) {                                                                 \
+      output = static_cast<EnumType>(std::atoi(stream->value));                                                        \
+    }                                                                                                                  \
+    throw std::runtime_error("Expected string or integer, got " + token_type_to_string(stream->type) +                 \
+                             "while parsing " __OBJECT_NAME_FOR_ERROR(EnumType) ".");                                  \
+  }
 
 #define FIELD_SERIALIZER(field)                                                                                        \
   if (!first)                                                                                                          \
@@ -206,6 +229,8 @@ private:
 
 #define JSON(ObjectType, ...)                                                                                          \
   TEMPLATED_JSON(TEMPLATE_ARGS(), __PROTECT(ObjectType) __VA_OPT__(, __PROTECT(__VA_ARGS__)))
+
+#define JSON_ENUM(EnumType, ...) ENUM_PARSER(EnumType __VA_OPT__(, PARSE_ENUM_VALUES(__VA_ARGS__))) // TODO: Implement serializer
 
 // +-----------------+
 // | IMPLEMENTATIONS |
