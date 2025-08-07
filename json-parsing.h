@@ -551,17 +551,6 @@ inline constexpr OutputIterator ContainerSerializer::serialize(Container const &
   return output;
 }
 
-#ifdef __JSON_ARRAYS
-// I do not understand why this is necessary, the general implementation below **should** cover this, but for some
-// reason it does not, so here we are!
-template <typename T, size_t n>
-template <std::output_iterator<char> OutputIterator>
-inline constexpr OutputIterator json<std::array<T, n>>::serialize(std::array<T, n> const &object,
-                                                                  OutputIterator output) {
-  return ContainerSerializer::serialize(object, output);
-}
-#endif
-
 template <typename T> template <Span Container> inline constexpr T json<T>::deserialize(Container json) {
   T res;
   deserialize(json, res);
