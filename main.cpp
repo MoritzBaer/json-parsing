@@ -149,7 +149,8 @@ int main() {
   BlogPost post = json<BlogPost>::deserialize<std::string>(json_string);
 
   std::vector<char> out_json{};
-  json<BlogPost>::serialize(post, std::back_inserter(out_json));
+  auto out_it = std::back_inserter(out_json);
+  json<BlogPost>::serialize(post, out_it);
   out_json = prettify_json(out_json);
 
   std::string out_json_str(out_json.begin(), out_json.end());
@@ -172,7 +173,8 @@ int main() {
                                       .timestamp = 1234567941}}};
 
   out_json = {};
-  json<BlogPost>::serialize(post2, std::back_inserter(out_json));
+  out_it = std::back_inserter(out_json);
+  json<BlogPost>::serialize(post2, out_it);
   out_json = prettify_json(out_json);
 
   std::cout << std::string(out_json.begin(), out_json.end()) << std::endl;
@@ -180,7 +182,8 @@ int main() {
   BlogPost parsedPost2 = json<BlogPost>::deserialize<std::vector<char>>(out_json);
 
   out_json = {};
-  json<BlogPost>::serialize(parsedPost2, std::back_inserter(out_json));
+  out_it = std::back_inserter(out_json);
+  json<BlogPost>::serialize(parsedPost2, out_it);
 
   out_json = prettify_json(out_json);
   std::cout << std::string(out_json.begin(), out_json.end()) << std::endl;
@@ -192,7 +195,8 @@ int main() {
   post2.image = &table;
 
   out_json = {};
-  json<BlogPost>::serialize(post2, std::back_inserter(out_json));
+  out_it = std::back_inserter(out_json);
+  json<BlogPost>::serialize(post2, out_it);
   out_json = prettify_json(out_json);
 
   std::cout << std::string(out_json.begin(), out_json.end()) << std::endl;
@@ -200,7 +204,8 @@ int main() {
   parsedPost2 = json<BlogPost>::deserialize<std::vector<char>>(out_json);
 
   out_json = {};
-  json<BlogPost>::serialize(parsedPost2, std::back_inserter(out_json));
+  out_it = std::back_inserter(out_json);
+  json<BlogPost>::serialize(parsedPost2, out_it);
 
   out_json = prettify_json(out_json);
   std::cout << std::string(out_json.begin(), out_json.end()) << std::endl;
