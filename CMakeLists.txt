@@ -4,6 +4,8 @@ project(JSON_PARSING)
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_compile_options(/Zc:preprocessor)
+if(MSVC)
+    add_compile_options(/Zc:preprocessor)
+endif()
 
 add_executable(TestApp "main.cpp")
