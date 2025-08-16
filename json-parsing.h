@@ -170,6 +170,7 @@ template <typename T, TokenStream StreamType> inline constexpr void parse_field(
       stream++;                                                                                                        \
       if (stream->type == Token::Type::RBrace) {                                                                       \
         ++stream;                                                                                                      \
+        return;                                                                                                        \
       }                                                                                                                \
       std::string key;                                                                                                 \
       bool is_last;                                                                                                    \
