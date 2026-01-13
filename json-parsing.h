@@ -273,10 +273,10 @@ void serialize_field(T const &field, OutputIterator &output) {
 #define __UP_TO_TWICE(Macro, Arg, ...) Macro(Arg) __VA_OPT__(__ONCE(Macro, __VA_ARGS__))
 
 #define __CAT(a, b) a##b
-#define __CONCAT(a, b) __CAT(a, b)
-#define __CONCAT_FOR_PARSING(a) __CONCAT(PARSE_, __PROTECT(a))
+#define __EXPANDED_CONCAT(a, b) __CAT(a, b)
+#define __CONCAT_FOR_PARSING(a) __EXPANDED_CONCAT(PARSE_, __PROTECT(a))
 #define __FOR_PARSING(...) __UP_TO_TWICE(__CONCAT_FOR_PARSING, __VA_ARGS__)
-#define __CONCAT_FOR_SERIALIZING(a) __CONCAT(SERIALIZE_, __PROTECT(a))
+#define __CONCAT_FOR_SERIALIZING(a) __EXPANDED_CONCAT(SERIALIZE_, __PROTECT(a))
 #define __FOR_SERIALIZING(...) __UP_TO_TWICE(__CONCAT_FOR_SERIALIZING, __VA_ARGS__)
 
 #define TEMPLATE_ARGS(...) __VA_ARGS__
