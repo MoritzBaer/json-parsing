@@ -5,7 +5,7 @@ project(JSON_PARSING)
 set(CMAKE_CXX_STANDARD 23)
 
 add_library(JsonParsing INTERFACE)
-target_include_directories(JsonParsing INTERFACE "lib")
+target_include_directories(JsonParsing INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/lib")
 
 include(CheckSourceCompiles)
 check_source_compiles(CXX "
@@ -26,5 +26,5 @@ if(NOT VA_OPT)
     endif()
 endif()
 
-add_executable(JSONDemo "main.cpp")
+add_executable(JSONDemo "demo.cpp")
 target_link_libraries(JSONDemo PRIVATE JsonParsing)
