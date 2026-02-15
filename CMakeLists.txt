@@ -26,5 +26,5 @@ if(NOT VA_OPT)
     endif()
 endif()
 
-add_executable(TestApp "main.cpp")
-target_link_libraries(TestApp PRIVATE JsonParsing)
+add_executable(JSONDemo "main.cpp")
+target_link_libraries(JSONDemo PRIVATE JsonParsing)
