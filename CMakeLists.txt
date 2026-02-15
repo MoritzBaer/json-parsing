@@ -4,8 +4,27 @@ project(JSON_PARSING)
 
 set(CMAKE_CXX_STANDARD 23)
 
-if(MSVC)
-    add_compile_options(/Zc:preprocessor)
+add_library(JsonParsing INTERFACE)
+target_include_directories(JsonParsing INTERFACE "lib")
+
+include(CheckSourceCompiles)
+check_source_compiles(CXX "
+#include <iostream>
+#define TEST(lbl, ...) int lbl[] = {5 __VA_OPT__(,) __VA_ARGS__}
+
+int main() {
+    TEST(t1);
+    TEST(t2, 2, 3);
+}
+"    VA_OPT)
+
+if(NOT VA_OPT)
+    if(MSVC)
+        target_compile_options(JsonParsing INTERFACE /Zc:preprocessor)
+    else()
+        message("Macro __VA_OPT__ undefined (needed by json-parsing).")
+    endif()
 endif()
 
 add_executable(TestApp "main.cpp")
+target_link_libraries(TestApp PRIVATE JsonParsing)
