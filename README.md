@@ -1,6 +1,6 @@
 # Inclusion
 
-A simple header-only library for `json` parsing. Include `json-parsing.h` in your project to get access to all features. `pp-foreach.h` is used by `json-parsing.h`, so it should be kept in the same location. 
+A simple header-only library for `json` parsing. Include `json-parsing.h` in your project to get access to all features. The project is built as an `INTERFACE`-library for easy integration with CMakeLists.
 
 # Features
 
